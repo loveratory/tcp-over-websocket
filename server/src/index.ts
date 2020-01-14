@@ -16,7 +16,13 @@ const srv = new WebSocket.Server({ port: config.port })
 srv.on('connection', (webSocket) => {
   const id = crypto.randomBytes(5).toString('hex')
   console.log('connected~ ' + id)
-  onConnection(webSocket).catch(console.error).finally(() => console.log(`ciao! ${id}`))
+  const final = () => console.log('ciao~ ' + id)
+  onConnection(webSocket).then(() => {
+    final()
+  }).catch((e) => {
+    final()
+    console.error(e)
+  })
 })
 
 const onConnection = (webSocket: WebSocket) => new Promise((res, rej) => {
