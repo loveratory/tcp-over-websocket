@@ -3,7 +3,15 @@ import net from 'net'
 import crypto from 'crypto'
 import { Duplex } from 'stream'
 
-const srv = new WebSocket.Server({ port: 7777 })
+const config = {
+  upstream: {
+    port: process.env.UPSTREAM_PORT ? Number.parseInt(process.env.UPSTREAM_PORT) : 5555,
+    host: process.env.UPSTREAM_HOST || 'localhost',
+  },
+  port: 7777
+}
+
+const srv = new WebSocket.Server({ port: config.port })
 
 srv.on('connection', (webSocket) => {
   const id = crypto.randomBytes(5).toString('hex')
@@ -12,7 +20,6 @@ srv.on('connection', (webSocket) => {
 })
 
 const onConnection = (webSocket: WebSocket) => new Promise((res, rej) => {
-  console.log('on-conn')
   const state: { netSocket?: net.Socket } = {
     netSocket: undefined
   }
@@ -22,7 +29,7 @@ const onConnection = (webSocket: WebSocket) => new Promise((res, rej) => {
   }
 
   const startup = (s: typeof state) => {
-    s.netSocket = net.createConnection(5555, 'localhost')
+    s.netSocket = net.createConnection(config.upstream.port, config.upstream.host)
     s.netSocket.on('error', (e) => {
       onError(e)
     })
@@ -48,3 +55,5 @@ const onConnection = (webSocket: WebSocket) => new Promise((res, rej) => {
     onError(e)
   })
 })
+
+console.log(`Listen on :${config.port}, connect to ${config.upstream.host}:${config.upstream.port}`)
