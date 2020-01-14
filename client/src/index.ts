@@ -11,7 +11,7 @@ const config = {
   server: {
     url: new URL(process.env.SERVER_URI || 'ws://localhost:7777'),
     reload: process.env.SERVER_RELOAD === 'true',
-    reloadSec: process.env.SERVER_RELOAD_SEC ? Number.parseInt(process.env.SERVER_RELOAD_SEC) : 30,
+    reloadSec: process.env.SERVER_RELOAD_SEC ? Number.parseInt(process.env.SERVER_RELOAD_SEC) : 5,
   },
   port: 4444,
   host: '0.0.0.0',
@@ -53,8 +53,8 @@ const server = net.createServer(async c => {
     return () => {
       // reconnect のために end しないようにする
       endable = false
-      c.unpipe(duplex)
       duplex.unpipe(c)
+      c.unpipe(duplex)
     }
   }
 
@@ -62,17 +62,26 @@ const server = net.createServer(async c => {
   console.log('connected~')
 
   if (config.server.reload) {
-    console.log('Ignite reload configuration...')
-    const sid = setTimeout(async () => {
+    console.log('Ignite reload configuration for ' + session + ' (' + config.server.reloadSec + ' sec)')
+    const sid = setInterval(async () => {
       if ([ws.CLOSED, ws.CLOSING].includes(upstream.readyState)) {
         console.log('already closed.')
-        clearTimeout(sid)
+        clearInterval(sid)
         return
       }
       try {
-        cleanup()
-        upstream = await connectWSS(session, false)
-        cleanup = setUpstream(upstream)
+        console.log('try to reconnect.')
+        c.pause()
+        setTimeout(async () => {
+          console.log('pause...')
+          const newup = await connectWSS(session, true)
+          upstream.close()
+          upstream = newup
+          cleanup()
+          cleanup = setUpstream(upstream)
+          c.resume()
+          console.log('reconnected~')
+        }, 1000)
       } catch (e) {
         console.error(e)
         c.end()

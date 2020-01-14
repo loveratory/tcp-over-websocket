@@ -92,15 +92,20 @@ const onConnection = (webSocket: WebSocket, url?: string) => new Promise((res, r
   const startup = (s: typeof state) => {
     s.netSocket = sessionSocket || connectUpstream()
     s.netSocket.on('error', (e) => {
+      duplexCleanup()
       onError(e)
     })
     s.netSocket.on('close', () => {
+      duplexCleanup()
       cleanup(s)
     })
-
     const wsDuplex: Duplex = (WebSocket as any).createWebSocketStream(webSocket)
     wsDuplex.pipe(s.netSocket)
     s.netSocket.pipe(wsDuplex)
+    const duplexCleanup = () => {
+      s.netSocket!.unpipe(wsDuplex)
+      wsDuplex.unpipe(s.netSocket)
+    }
   }
   const cleanup = (s: typeof state, resolve = true) => {
     if (s.netSocket) {
