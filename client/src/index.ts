@@ -50,12 +50,16 @@ const server = net.createServer(async c => {
     const duplex: Duplex = (ws as any).createWebSocketStream(upstream)
     c.pipe(duplex)
     duplex.pipe(c)
-    return () => {
+    return () => new Promise((res, rej) => {
       // reconnect のために end しないようにする
       endable = false
-      duplex.unpipe(c)
-      c.unpipe(duplex)
-    }
+      upst.ping((err) => {
+        if (err) return rej(err)
+        duplex.unpipe(c)
+        c.unpipe(duplex)
+        res()
+      })
+    })
   }
 
   let cleanup = setUpstream(upstream)
@@ -75,9 +79,9 @@ const server = net.createServer(async c => {
         setTimeout(async () => {
           console.log('pause...')
           const newup = await connectWSS(session, true)
+          await cleanup()
           upstream.close()
           upstream = newup
-          cleanup()
           cleanup = setUpstream(upstream)
           c.resume()
           console.log('reconnected~')
